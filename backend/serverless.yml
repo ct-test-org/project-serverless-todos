@@ -1,6 +1,7 @@
 # org: ctownsdin
 app: serverless-todo-app
 service: serverless-todo-app
+variablesResolutionMode: "20210326" # if vars are undefined, stop
 
 plugins:
   - serverless-webpack
@@ -31,14 +32,51 @@ provider:
     # Enable API Gateway logs
     restApi: true
 
-  iam:
-    role:
-      statements:
-        - Effect: Allow
-          Action:
-            - xray:PutTelemetryRecords
-            - xray:PutTraceSegments
-          Resource: "*"
+  # iam:
+  #   role:
+  #     statements:
+  #       - Effect: Allow
+  #         Action:
+  #           - xray:PutTelemetryRecords
+  #           - xray:PutTraceSegments
+  #         Resource: "*"
+
+resources:
+  Resources:
+    # TODO:
+    # GatewayResponseDefault4XX:
+    #   Type: AWS::ApiGateway::GatewayResponse
+    #   Properties:
+
+    # TODO: Create a DynamoDB table with local secondary index and a composite key
+    TodosTable:
+      Type: AWS::DynamoDB::Table
+      # reference: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema: # specifies attrib's that make up the primary key
+          - AttributeName: userId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:provider.environment.TODOS_TABLE}
+        # NOTE: Partition key is newnamefor Hash key, Sort key is newnamefor Range key
+        # ProvisionedThroughput:
+        #   ReadCapacityUnits: 1
+        #   WriteCapacityUnits: 1
+
+    # TODO: Complete the bucket properties below.
+    # Do not forget to add the CorsConfiguration propoerty
+    # AttachmentsBucket:
+    #   Type: AWS::S3::Bucket
+    #   Properties:
+
+    # TODO: Complete the policy below and attach it to the bucket defined above
+    # For cross referencing the name of the bucket, use "!Ref AttachmentsBucket"
+    # BucketPolicy:
+    #   Type: AWS::S3::BucketPolicy
+    #   Properties:
 
 functions:
   Auth:
@@ -48,22 +86,30 @@ functions:
   # Provide iamRoleStatements property. Decide the Actions and AWS Resource.
   # To refer to an AWS resource defined in the "Resources" section, you can use "Resource: !GetAtt <resource-name>.Arn"
   # To validate incoming HTTP requests, we have provided the request schemas in function definition below.
-  CreateTodo:
-    handler: src/lambda/http/createTodo.handler
-    events:
-      - http:
-          method: post
-          path: todos
-          cors: true
-          authorizer: Auth
-          request:
-            schemas:
-              application/json: ${file(models/create-todo-model.json)}
+  # CreateTodo:
+  #   handler: src/lambda/http/createTodo.handler
+  #   events:
+  #     - http:
+  #         method: post
+  #         path: todos
+  #         cors: true
+  #         authorizer: Auth
+  #         request:
+  #           schemas:
+  #             application/json: ${file(models/create-todo-model.json)}
 
-  # TODO: Configure this function -
-  # Provide iamRoleStatements property for performing Actions on DynamoDB
   GetTodos:
     handler: src/lambda/http/getTodos.handler
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - dynamodb:GetItem
+        # TODO: we need a proper arn access here.
+        # Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/mytable"
+        # Resource: !GetAtt ${self:provider.environment.TODOS_TABLE}.Arn
+        # reference: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getatt.html
+        # or we can construct it ourselves instead
+        Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}"
     events:
       - http:
           method: get
@@ -71,55 +117,29 @@ functions:
           cors: true
           authorizer: Auth
 
-  # TODO: Configure this function
-  # Provide property for setting up CORS, Authorizer, iamRoleStatements, and request schemas
-  UpdateTodo:
-    handler: src/lambda/http/updateTodo.handler
-    events:
-      - http:
-          method: patch
-          path: todos/{todoId}
+  # # TODO: Configure this function
+  # # Provide property for setting up CORS, Authorizer, iamRoleStatements, and request schemas
+  # UpdateTodo:
+  #   handler: src/lambda/http/updateTodo.handler
+  #   events:
+  #     - http:
+  #         method: patch
+  #         path: todos/{todoId}
 
-  # TODO: Configure this function
-  # Provide property for setting up CORS, Authorizer, iamRoleStatements
-  DeleteTodo:
-    handler: src/lambda/http/deleteTodo.handler
-    events:
-      - http:
-          method: delete
-          path: todos/{todoId}
+  # # TODO: Configure this function
+  # # Provide property for setting up CORS, Authorizer, iamRoleStatements
+  # DeleteTodo:
+  #   handler: src/lambda/http/deleteTodo.handler
+  #   events:
+  #     - http:
+  #         method: delete
+  #         path: todos/{todoId}
 
-  # TODO: Configure this function
-  # Provide property for setting up CORS, Authorizer, iamRoleStatements
-  GenerateUploadUrl:
-    handler: src/lambda/http/generateUploadUrl.handler
-    events:
-      - http:
-          method: post
-          path: todos/{todoId}/attachment
-
-resources:
-  Resources:
-    # Add necessary AWS resources. You will need at least the following AWS resources
-    # TODO: Fill the properties
-    # Feel free to change the names as you like.
-    GatewayResponseDefault4XX:
-      Type: AWS::ApiGateway::GatewayResponse
-      Properties:
-
-    # TODO: Create a DynamoDB table with local secondary index and a composite key
-    TodosTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-
-    # TODO: Complete the bucket properties below.
-    # Do not forget to add the CorsConfiguration propoerty
-    AttachmentsBucket:
-      Type: AWS::S3::Bucket
-      Properties:
-
-    # TODO: Complete the policy below and attach it to the bucket defined above
-    # For cross referencing the name of the bucket, use "!Ref AttachmentsBucket"
-    BucketPolicy:
-      Type: AWS::S3::BucketPolicy
-      Properties:
+  # # TODO: Configure this function
+  # # Provide property for setting up CORS, Authorizer, iamRoleStatements
+  # GenerateUploadUrl:
+  #   handler: src/lambda/http/generateUploadUrl.handler
+  #   events:
+  #     - http:
+  #         method: post
+  #         path: todos/{todoId}/attachment
