@@ -104,13 +104,14 @@ functions:
         Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}"
     events:
       - http:
-          method: post
           path: todos
+          method: post
           cors: true
           # authorizer: Auth
           request:
+            # schema which validates incoming requests
             schemas:
-              application/json: ${file(models/create-todo-model.json)}
+              application/json: ${file(create-todo-request.json)}
 
   # GetTodos:
   #   handler: src/lambda/http/getTodos.handler
