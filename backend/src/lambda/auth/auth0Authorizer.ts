@@ -19,24 +19,6 @@ export const handler = async (
 ): Promise<CustomAuthorizerResult> => {
   logger.info("Authorizing a user", event.authorizationToken);
   try {
-    ////////////////////////////////////
-    // TODO: remove this temporary hack
-    if (true)
-      return {
-        principalId: "Imagine principalId",
-        policyDocument: {
-          Version: "2012-10-17",
-          Statement: [
-            {
-              Action: "execute-api:Invoke",
-              Effect: "Allow",
-              Resource: "*",
-            },
-          ],
-        },
-      };
-    ////////////////////////////////////
-
     const jwtToken = await verifyToken(event.authorizationToken);
     logger.info("User was authorized", jwtToken);
 

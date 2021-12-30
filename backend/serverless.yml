@@ -8,6 +8,11 @@ plugins:
   - serverless-iam-roles-per-function
   - serverless-plugin-tracing
 
+custom:
+  dynamodb:
+    stages:
+      - ${self:provider.stage}
+
 provider:
   name: aws
   runtime: nodejs12.x
@@ -23,7 +28,7 @@ provider:
   # Use these variables in the functions and resouorces section below. For example,
   # ${self:provider.environment.ATTACHMENT_S3_BUCKET}
   environment:
-    TODOS_TABLE: Todos-${self:provider.stage}
+    TODOS_TABLE: todos-${self:provider.stage}
     TODOS_CREATED_AT_INDEX: CreatedAtIndex
     ATTACHMENT_S3_BUCKET: serverless-todos-images-${self:provider.stage}
     SIGNED_URL_EXPIRATION: 300
@@ -43,24 +48,23 @@ provider:
 
 resources:
   Resources:
-    # TODO:
-    # GatewayResponseDefault4XX:
-    #   Type: AWS::ApiGateway::GatewayResponse
-    #   Properties:
-
     # TODO: Create a DynamoDB table with local secondary index and a composite key
     TodosTable:
       Type: AWS::DynamoDB::Table
       # reference: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html
       Properties:
+        TableName: ${self:provider.environment.TODOS_TABLE}
         AttributeDefinitions:
-          - AttributeName: userId
+          - AttributeName: name
+            AttributeType: S
+          - AttributeName: dueDate
             AttributeType: S
         KeySchema: # specifies attrib's that make up the primary key
-          - AttributeName: userId
+          - AttributeName: name
             KeyType: HASH
+          - AttributeName: dueDate
+            KeyType: RANGE
         BillingMode: PAY_PER_REQUEST
-        TableName: ${self:provider.environment.TODOS_TABLE}
         # NOTE: Partition key is newnamefor Hash key, Sort key is newnamefor Range key
         # ProvisionedThroughput:
         #   ReadCapacityUnits: 1
@@ -78,44 +82,65 @@ resources:
     #   Type: AWS::S3::BucketPolicy
     #   Properties:
 
+    # TODO:
+    # GatewayResponseDefault4XX:
+    #   Type: AWS::ApiGateway::GatewayResponse
+    #   Properties:
+
 functions:
-  Auth:
-    handler: src/lambda/auth/auth0Authorizer.handler
+  # Auth:
+  #   handler: src/lambda/auth/auth0Authorizer.handler
 
   # TODO: Configure this function -
   # Provide iamRoleStatements property. Decide the Actions and AWS Resource.
   # To refer to an AWS resource defined in the "Resources" section, you can use "Resource: !GetAtt <resource-name>.Arn"
   # To validate incoming HTTP requests, we have provided the request schemas in function definition below.
-  # CreateTodo:
-  #   handler: src/lambda/http/createTodo.handler
-  #   events:
-  #     - http:
-  #         method: post
-  #         path: todos
-  #         cors: true
-  #         authorizer: Auth
-  #         request:
-  #           schemas:
-  #             application/json: ${file(models/create-todo-model.json)}
-
-  GetTodos:
-    handler: src/lambda/http/getTodos.handler
+  CreateTodo:
+    handler: src/lambda/http/createTodo.handler
     iamRoleStatements:
       - Effect: "Allow"
         Action:
-          - dynamodb:GetItem
-        # TODO: we need a proper arn access here.
-        # Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/mytable"
-        # Resource: !GetAtt ${self:provider.environment.TODOS_TABLE}.Arn
-        # reference: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getatt.html
-        # or we can construct it ourselves instead
+          - dynamodb:PutItem
+        Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}"
+    events:
+      - http:
+          method: post
+          path: todos
+          cors: true
+          # authorizer: Auth
+          request:
+            schemas:
+              application/json: ${file(models/create-todo-model.json)}
+
+  # GetTodos:
+  #   handler: src/lambda/http/getTodos.handler
+  #   iamRoleStatements:
+  #     - Effect: "Allow"
+  #       Action:
+  #         - dynamodb:GetItem
+  #       Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}"
+  #   events:
+  #     - http:
+  #         method: get
+  #         path: todos
+  #         cors: true
+  #         # authorizer: Auth
+
+  ## Not intended for production use at this time.
+  ## TODO: disable or fix
+  GetAllTodos:
+    handler: src/lambda/http/getAllTodos.handler
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - dynamodb:Scan
         Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}"
     events:
       - http:
           method: get
-          path: todos
+          path: todos/all
           cors: true
-          authorizer: Auth
+          # authorizer: Auth
 
   # # TODO: Configure this function
   # # Provide property for setting up CORS, Authorizer, iamRoleStatements, and request schemas
