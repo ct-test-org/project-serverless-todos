@@ -17,5 +17,5 @@ export function getUserId(event: APIGatewayProxyEvent): string {
 // TODO: make the real one work, delete the mock from below.
 
 export function getMockUserId(): string {
-  return "ImageUserIdHere-12345";
+  return "ImagineUserIdHere-12345";
 }
