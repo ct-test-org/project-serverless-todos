@@ -1,9 +1,10 @@
+import "source-map-support/register";
+
 import {
   APIGatewayProxyHandler,
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
 } from "aws-lambda";
-import "source-map-support/register";
 import * as AWS from "aws-sdk";
 // import * as middy from "middy";
 // import { cors } from "middy/middlewares";
