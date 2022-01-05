@@ -246,6 +246,23 @@ functions:
           path: images/{imageId}
           cors: true
 
+  CreateImage:
+    handler: src/lambda/http/createImage.handler
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - dynamodb:GetItem
+        Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.GROUPS_TABLE}"
+      - Effect: "Allow"
+        Action:
+          - dynamodb:PutItem
+        Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.IMAGES_TABLE}"
+    events:
+      - http:
+          method: post
+          path: groups/{groupId}/images
+          cors: true
+
   # # TODO: Configure this function
   # # Provide property for setting up CORS, Authorizer, iamRoleStatements
   # GenerateUploadUrl:

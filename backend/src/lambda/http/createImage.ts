@@ -7,21 +7,19 @@ import {
 } from "aws-lambda";
 import * as AWS from "aws-sdk";
 
+import { v4 } from "uuid";
 const docClient = new AWS.DynamoDB.DocumentClient();
 
 const groupsTable = process.env.GROUPS_TABLE;
 const imagesTable = process.env.IMAGES_TABLE;
 
-export const handler: APIGatewayProxyHandler = async (
+export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
-  console.log("caller event", event);
-
   const groupId = event.pathParameters.groupId;
   const validGroupId = await groupExists(groupId);
 
   if (!validGroupId) {
-    console.log("invalid group was requested");
     return {
       statusCode: 404,
       headers: {
@@ -33,15 +31,16 @@ export const handler: APIGatewayProxyHandler = async (
     };
   }
 
-  const images = await getImagesPerGroup(groupId);
+  const imageId = v4();
+  const newItem = await createImage(groupId, imageId, event);
 
   return {
-    statusCode: 200,
+    statusCode: 201,
     headers: {
       "Access-Control-Allow-Origin": "*",
     },
     body: JSON.stringify({
-      items: images,
+      newItem,
     }),
   };
 };
@@ -61,17 +60,28 @@ async function groupExists(groupId: string) {
   return !!result.Item;
 }
 
-async function getImagesPerGroup(groupId: string) {
-  const result = await docClient
-    .query({
+async function createImage(
+  groupId: string,
+  imageId: string,
+  event: APIGatewayProxyEvent
+) {
+  const timestamp = new Date().toISOString();
+  const newImage = JSON.parse(event.body);
+
+  const newItem = {
+    groupId,
+    timestamp,
+    imageId,
+    ...newImage,
+  };
+
+  await docClient
+    .put({
       TableName: imagesTable,
-      KeyConditionExpression: "groupId = :groupId",
-      ExpressionAttributeValues: {
-        ":groupId": groupId,
-      },
-      ScanIndexForward: false,
+      Item: newItem,
     })
     .promise();
 
-  return result.Items;
+  // ddb.put returns no item, using newItem directly
+  return newItem;
 }
