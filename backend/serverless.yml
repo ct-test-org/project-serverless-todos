@@ -30,6 +30,10 @@ provider:
   environment:
     TODOS_TABLE: todos-${self:provider.stage}
     TODOS_CREATED_AT_INDEX: CreatedAtIndex
+
+    GROUPS_TABLE: groups-${self:provider.stage}
+    IMAGES_TABLE: images-${self:provider.stage}
+
     ATTACHMENT_S3_BUCKET: serverless-todos-images-${self:provider.stage}
     SIGNED_URL_EXPIRATION: 300
 
@@ -70,6 +74,38 @@ resources:
         #   ReadCapacityUnits: 1
         #   WriteCapacityUnits: 1
 
+    ImagesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.IMAGES_TABLE}
+        AttributeDefinitions:
+          - AttributeName: groupId
+            AttributeType: S
+          - AttributeName: timestamp
+            AttributeType: S
+        KeySchema:
+          - AttributeName: groupId
+            KeyType: HASH
+          - AttributeName: timestamp
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    GroupsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.GROUPS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: groupId
+            AttributeType: S
+          # - AttributeName: description
+          #   AttributeType: S
+          # - AttributeName: name
+          #   AttributeType: S
+        KeySchema: # specifies attrib's that make up the primary key
+          - AttributeName: groupId
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
     # TODO: Complete the bucket properties below.
     # Do not forget to add the CorsConfiguration propoerty
     # AttachmentsBucket:
@@ -86,6 +122,15 @@ resources:
     # GatewayResponseDefault4XX:
     #   Type: AWS::ApiGateway::GatewayResponse
     #   Properties:
+
+    # I think request validation is built into api gateway now and so this is no longer required here.
+    # RequestBodyValidator:
+    #   Type: AWS::ApiGateway::RequestValidator
+    #   Properties:
+    #     Name: 'request-body-validator'
+    #     RestApiId:
+    #       Ref: ApiGatewayRestApi
+    #     Valida
 
 functions:
   # Auth:
@@ -160,6 +205,23 @@ functions:
   #     - http:
   #         method: delete
   #         path: todos/{todoId}
+
+  GetImages: # byGroupId
+    handler: src/lambda/http/getImages.handler
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - dynamodb:GetItem
+        Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.GROUPS_TABLE}"
+      - Effect: "Allow"
+        Action:
+          - dynamodb:Query
+        Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.IMAGES_TABLE}"
+    events:
+      - http:
+          method: get
+          path: groups/{groupId}/images
+          cors: true
 
   # # TODO: Configure this function
   # # Provide property for setting up CORS, Authorizer, iamRoleStatements
